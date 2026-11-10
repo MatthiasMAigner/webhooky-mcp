@@ -1,6 +1,6 @@
 {
   "name": "webhooky-mcp",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP server for Webhooky, lets an AI assistant send a push notification to your phone.",
   "type": "module",
   "bin": {

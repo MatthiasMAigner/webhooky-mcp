@@ -8,9 +8,10 @@
  * Configuration is a single environment variable:
  *   WEBHOOKY_URL=https://api.webhooky.app/YOUR_KEY
  *
- * The URL can only trigger a notification - it cannot read anything or reach an
- * account - but it is still never accepted as a tool argument, a model should not be able to send to an
- * arbitrary endpoint, and the key should not travel through the transcript.
+ * The URL can only trigger a notification. It cannot read anything or reach an
+ * account. It is still never accepted as a tool argument: a model should not
+ * be able to send to an arbitrary endpoint, and the key should not travel
+ * through the transcript.
  *
  * stdio note: stdout is the protocol channel. Everything diagnostic goes to
  * stderr, or the client sees corrupted frames.
