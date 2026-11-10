@@ -1,0 +1,30 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.matthiasmaigner/webhooky-mcp",
+  "title": "Webhooky",
+  "description": "Send yourself a push notification from an AI assistant. No account, one environment variable.",
+  "version": "1.0.2",
+  "websiteUrl": "https://webhooky.app",
+  "repository": {
+    "url": "https://github.com/MatthiasMAigner/webhooky-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "webhooky-mcp",
+      "version": "1.0.2",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "WEBHOOKY_URL",
+          "description": "Your Webhooky endpoint URL, copied from the app.",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}
