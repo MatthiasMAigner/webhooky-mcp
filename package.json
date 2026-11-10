@@ -1,0 +1,40 @@
+{
+  "name": "webhooky-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Webhooky, lets an AI assistant send a push notification to your phone.",
+  "type": "module",
+  "bin": {
+    "webhooky-mcp": "index.js"
+  },
+  "main": "./index.js",
+  "files": [
+    "index.js",
+    "sounds.js",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node test.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "push-notification",
+    "webhook",
+    "webhooky"
+  ],
+  "license": "MIT",
+  "author": "Aigner Software e.U.",
+  "homepage": "https://webhooky.app/ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MatthiasMAigner/webhooky.git",
+    "directory": "mcp"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.3.1",
+    "zod": "^4.0.0"
+  }
+}
