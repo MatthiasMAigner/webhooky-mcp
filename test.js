@@ -55,6 +55,58 @@ const rpc = (method, params) =>
     setTimeout(() => reject(new Error(`timeout waiting for ${method}`)), 8000);
   });
 
+/**
+ * Runs a second server with its own environment and asks it the basics. Used
+ * to check what a client, or a directory building a listing, sees when the
+ * server is started with nothing configured.
+ */
+async function probe(envOverrides) {
+  const env = { ...process.env };
+  for (const [k, v] of Object.entries(envOverrides)) {
+    if (v === undefined) delete env[k];
+    else env[k] = v;
+  }
+  const p = spawn(process.execPath, ["index.js"], { env, stdio: ["pipe", "pipe", "pipe"] });
+  let buf = "";
+  const waiting = new Map();
+  p.stdout.on("data", (chunk) => {
+    buf += chunk;
+    let i;
+    while ((i = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, i).trim();
+      buf = buf.slice(i + 1);
+      if (!line) continue;
+      const m = JSON.parse(line);
+      if (m.id && waiting.has(m.id)) { waiting.get(m.id)(m); waiting.delete(m.id); }
+    }
+  });
+  let id = 1;
+  const ask = (method, params) =>
+    new Promise((resolve, reject) => {
+      const mine = id++;
+      waiting.set(mine, resolve);
+      p.stdin.write(JSON.stringify({ jsonrpc: "2.0", id: mine, method, params }) + "\n");
+      setTimeout(() => reject(new Error(`timeout waiting for ${method}`)), 8000);
+    });
+  try {
+    await ask("initialize", {
+      protocolVersion: "2025-06-18", capabilities: {},
+      clientInfo: { name: "probe", version: "1" },
+    });
+    p.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n");
+    const list = await ask("tools/list", {});
+    const call = await ask("tools/call", { name: "send_notification", arguments: { title: "x" } });
+    const sounds = await ask("tools/call", { name: "list_sounds", arguments: {} });
+    return {
+      tools: (list.result?.tools || []).map((x) => x.name),
+      call: call.result,
+      sounds: sounds.result,
+    };
+  } finally {
+    p.kill();
+  }
+}
+
 let pass = 0, fail = 0;
 const t = (name, cond, detail = "") => {
   cond ? pass++ : fail++;
@@ -121,6 +173,31 @@ try {
 
   // --- Key darf nicht durchsickern
   t("Endpunkt-Key nicht in stderr", !stderr.includes("TESTKEY123"), stderr.slice(0, 160));
+
+  // --- Ohne Konfiguration muss der Server trotzdem Auskunft geben, sonst
+  //     steht in jedem Verzeichnis "keine Werkzeuge".
+  const blank = await probe({ WEBHOOKY_URL: undefined });
+  t("ohne WEBHOOKY_URL nennt tools/list beide Werkzeuge",
+     blank.tools.includes("send_notification") && blank.tools.includes("list_sounds"),
+     JSON.stringify(blank.tools));
+  t("ohne WEBHOOKY_URL meldet erst der Aufruf den Fehler",
+     blank.call?.isError === true &&
+       /WEBHOOKY_URL is not set/.test(blank.call?.content?.[0]?.text || ""),
+     JSON.stringify(blank.call).slice(0, 160));
+  t("ohne WEBHOOKY_URL bleibt list_sounds nutzbar",
+     /cash_register/.test(blank.sounds?.content?.[0]?.text || ""));
+
+  const plainHttp = await probe({ WEBHOOKY_URL: "http://api.webhooky.app/KEY" });
+  t("http ausserhalb localhost: Werkzeuge bleiben sichtbar",
+     plainHttp.tools.length === 2, JSON.stringify(plainHttp.tools));
+  t("http ausserhalb localhost: der Aufruf erklärt warum",
+     /must use https/.test(plainHttp.call?.content?.[0]?.text || ""),
+     JSON.stringify(plainHttp.call).slice(0, 160));
+
+  const noKey = await probe({ WEBHOOKY_URL: "https://api.webhooky.app/" });
+  t("URL ohne Schlüssel: der Aufruf nennt den fehlenden Schlüssel",
+     /missing the endpoint key/.test(noKey.call?.content?.[0]?.text || ""),
+     JSON.stringify(noKey.call).slice(0, 160));
 } catch (e) {
   fail++; console.log("  FAIL  Ausnahme:", e.message);
 } finally {

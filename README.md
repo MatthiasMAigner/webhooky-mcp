@@ -107,6 +107,10 @@ event instead of guessing from an id.
 `WEBHOOKY_URL` must be `https`, except on `localhost` / `127.0.0.1`, where plain
 `http` is allowed because nothing leaves the machine.
 
+The server starts and lists its tools even with nothing configured, so a client
+can show you what it does before you set anything up. It complains when
+`send_notification` is actually called, and tells you what to set.
+
 ## A note on your URL
 
 Your endpoint URL can do exactly one thing: trigger a notification on your phone.

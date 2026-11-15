@@ -15,52 +15,65 @@
  *
  * stdio note: stdout is the protocol channel. Everything diagnostic goes to
  * stderr, or the client sees corrupted frames.
+ *
+ * Missing or broken configuration does not stop the server starting. A client,
+ * or a directory building a listing, may run it only to ask what it can do,
+ * with nothing configured at all. Exiting there makes a working server look
+ * broken and leaves the tool list empty, so the complaint waits until
+ * send_notification is actually called.
  */
 import { McpServer } from "@modelcontextprotocol/server";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import * as z from "zod/v4";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { SOUNDS, SOUND_GROUPS, groupOf } from "./sounds.js";
+
+// Read rather than hard-code, so the version cannot drift from the package.
+const { version: VERSION } = JSON.parse(
+  readFileSync(fileURLToPath(new URL("./package.json", import.meta.url)), "utf8"),
+);
 
 const ENDPOINT = process.env.WEBHOOKY_URL;
 const TIMEOUT_MS = Number(process.env.WEBHOOKY_TIMEOUT_MS || 10_000);
 
-if (!ENDPOINT) {
-  console.error(
-    "webhooky-mcp: WEBHOOKY_URL is not set.\n" +
-      "Create an endpoint in the Webhooky app (https://webhooky.app), copy its URL\n" +
-      "and set it, e.g. WEBHOOKY_URL=https://api.webhooky.app/YOUR_KEY",
-  );
-  process.exit(1);
+/**
+ * What is wrong with the configured URL, or null when nothing is. The text is
+ * written to be read by whoever has to fix it, so it says what to do next.
+ */
+function configProblem(url) {
+  if (!url) {
+    return "WEBHOOKY_URL is not set. Create an endpoint in the Webhooky app " +
+      "(https://webhooky.app), copy its URL and set it, " +
+      "e.g. WEBHOOKY_URL=https://api.webhooky.app/YOUR_KEY";
+  }
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return `WEBHOOKY_URL is not a URL: ${url}`;
+  }
+  // Plain http is allowed only on loopback, where nothing leaves the machine;
+  // anywhere else the endpoint key would travel in clear text.
+  const isLoopback = ["localhost", "127.0.0.1", "[::1]", "::1"].includes(parsed.hostname);
+  if (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && isLoopback)) {
+    return `WEBHOOKY_URL must use https (http is only allowed on localhost): ${url}. ` +
+      "Expected something like https://api.webhooky.app/YOUR_KEY";
+  }
+  if (parsed.pathname.replace(/^\/+|\/+$/g, "") === "") {
+    return `WEBHOOKY_URL is missing the endpoint key: ${url}. ` +
+      "Expected something like https://api.webhooky.app/YOUR_KEY";
+  }
+  return null;
 }
-let parsed;
-try {
-  parsed = new URL(ENDPOINT);
-} catch {
-  console.error(`webhooky-mcp: WEBHOOKY_URL is not a URL: ${ENDPOINT}`);
-  process.exit(1);
-}
-// Plain http is allowed only on loopback, where nothing leaves the machine;
-// anywhere else the endpoint key would travel in clear text.
-const isLoopback = ["localhost", "127.0.0.1", "[::1]", "::1"].includes(parsed.hostname);
-if (parsed.protocol !== "https:" && !(parsed.protocol === "http:" && isLoopback)) {
-  console.error(
-    `webhooky-mcp: WEBHOOKY_URL must use https (http is only allowed on localhost): ${ENDPOINT}\n` +
-      "Expected something like https://api.webhooky.app/YOUR_KEY",
-  );
-  process.exit(1);
-}
-if (parsed.pathname.replace(/^\/+|\/+$/g, "") === "") {
-  console.error(
-    `webhooky-mcp: WEBHOOKY_URL is missing the endpoint key: ${ENDPOINT}\n` +
-      "Expected something like https://api.webhooky.app/YOUR_KEY",
-  );
-  process.exit(1);
-}
+
+const CONFIG_ERROR = configProblem(ENDPOINT);
 
 /** Never let the endpoint key reach the model or the transcript. */
-const redact = (text) => String(text).split(ENDPOINT).join("<your endpoint>");
+const redact = (text) =>
+  ENDPOINT ? String(text).split(ENDPOINT).join("<your endpoint>") : String(text);
 
-const server = new McpServer({ name: "webhooky", version: "1.0.0" });
+const server = new McpServer({ name: "webhooky", version: VERSION });
 
 server.registerTool(
   "send_notification",
@@ -93,6 +106,13 @@ server.registerTool(
     }),
   },
   async ({ title, message, sound, vibrate }) => {
+    if (CONFIG_ERROR) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `webhooky-mcp is not configured: ${CONFIG_ERROR}` }],
+      };
+    }
+
     const body = { title };
     if (message !== undefined) body.message = message;
     if (sound !== undefined) body.sound = sound;
@@ -183,4 +203,11 @@ server.registerTool(
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
-console.error(`webhooky-mcp ready, endpoint ${ENDPOINT.replace(/\/[^/]+$/, "/***")}`);
+if (CONFIG_ERROR) {
+  console.error(
+    `webhooky-mcp: ${CONFIG_ERROR}\n` +
+      "The tool list is served anyway; send_notification will report this until it is fixed.",
+  );
+} else {
+  console.error(`webhooky-mcp ready, endpoint ${ENDPOINT.replace(/\/[^/]+$/, "/***")}`);
+}

@@ -3,7 +3,7 @@
   "name": "io.github.MatthiasMAigner/webhooky-mcp",
   "title": "Webhooky",
   "description": "Send yourself a push notification from an AI assistant. No account, one environment variable.",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "websiteUrl": "https://webhooky.app",
   "repository": {
     "url": "https://github.com/MatthiasMAigner/webhooky-mcp",
@@ -13,7 +13,9 @@
     {
       "src": "https://webhooky.app/images/logo.png",
       "mimeType": "image/png",
-      "sizes": ["192x192"]
+      "sizes": [
+        "192x192"
+      ]
     }
   ],
   "remotes": [
@@ -43,7 +45,7 @@
     {
       "registryType": "npm",
       "identifier": "webhooky-mcp",
-      "version": "1.0.4",
+      "version": "1.0.5",
       "transport": {
         "type": "stdio"
       },
