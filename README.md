@@ -19,6 +19,34 @@ Install the Webhooky app ([iOS](https://apps.apple.com/app/id6754565668) ·
 endpoint and copy its URL. No account needed, the URL exists the moment the app
 opens. The free plan covers 100 notifications per month across up to 3 endpoints.
 
+There are two ways to run it. The hosted server needs nothing installed and
+works in clients that cannot start a local process, such as claude.ai in a
+browser, the Claude app on a phone, or ChatGPT. The npm package below runs on
+your own machine and keeps the key out of any request to us beyond the
+notification itself.
+
+## Hosted, nothing to install
+
+`https://mcp.webhooky.app`, streamable HTTP. The endpoint key goes in an
+`Authorization` header:
+
+```bash
+claude mcp add --transport http webhooky https://mcp.webhooky.app \
+  --header "Authorization: Bearer YOUR_KEY"
+```
+
+Clients that only offer a URL field take the key in the path instead:
+
+```
+https://mcp.webhooky.app/YOUR_KEY
+```
+
+The hosted server is stateless. It keeps nothing between calls, and it holds no
+copy of your key: the key arrives with each request and is used to deliver that
+one notification.
+
+## Local
+
 ### Claude Code
 
 ```bash
@@ -84,7 +112,7 @@ event instead of guessing from an id.
 Your endpoint URL can do exactly one thing: trigger a notification on your phone.
 It cannot read your history, reach your account or expose any data. Anyone who
 knows it can send you notifications, and that is the whole blast radius.
-This server therefore takes it **only** from
+The npm package therefore takes it **only** from
 the environment, never as a tool argument: a model can't be talked into sending
 to a different endpoint, and the key never enters the conversation. It is also
 stripped from any error message before it is returned.
